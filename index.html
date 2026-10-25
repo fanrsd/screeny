@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screeny · Screening ETF</title>
+<script>document.documentElement.dataset.theme = localStorage.getItem("screeny:theme") ?? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");</script>
+<style>
+/* Research-sheet direction: warm paper + ink like a printed broker report; one green accent marks verdicts; rust only for warnings. */
+:root {
+  --paper: #f5f1e8; --sheet: #fbf9f4; --ink: #1c1d1a; --muted: #575a52; --line: #d6d0c2;
+  --accent: #1d5b3a; --accent-soft: #dbe7dd; --on-accent: #fbf9f4; --rust: #9b3a22;
+  /* Serif for figures and headings gives the report voice; ships with Windows (Palatino Linotype) and macOS (Iowan). */
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --paper: #141613; --sheet: #1b1e1a; --ink: #ebe8df; --muted: #a6a99f; --line: #343830;
+  --accent: #7cc79a; --accent-soft: #23362a; --on-accent: #141613; --rust: #ec8f73;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--sans); }
+a { color: var(--accent); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+header.mast { border-bottom: 3px double var(--ink); padding: 22px 0 14px; }
+.mast .wrap { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.mast h1 { font: 700 34px/1 var(--serif); margin: 0; letter-spacing: -0.5px; }
+.mast p { margin: 6px 0 0; color: var(--muted); max-width: 640px; }
+.btn { min-height: 44px; padding: 0 16px; border: 1px solid var(--line); background: var(--sheet); border-radius: 4px; cursor: pointer; }
+.btn:hover { border-color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn.small { min-height: 36px; padding: 0 12px; }
+
+.finder { padding: 22px 0 8px; }
+.finder form { display: flex; gap: 8px; max-width: 620px; }
+.finder input { flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 4px; background: var(--sheet); text-transform: uppercase; }
+.finder input::placeholder { text-transform: none; color: var(--muted); }
+.finder .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px 32px; margin-top: 18px; }
+.preset h2 { font: 600 14px/1.3 var(--sans); margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.preset h2 a { font-weight: 400; font-size: 13px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: transparent; cursor: pointer; font-variant-numeric: tabular-nums; }
+.chip:hover { border-color: var(--ink); }
+.chip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.chip.all { border-style: dashed; }
+@media (pointer: coarse) { .chip, .btn.small { min-height: 44px; } }
+
+main.wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; padding-top: 18px; padding-bottom: 48px; align-items: start; }
+@media (min-width: 1181px) and (max-width: 1240px) { .hide-md { display: none; } }
+@media (max-width: 1180px) { main.wrap { grid-template-columns: minmax(0, 1fr); } }
+.sec-head { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--ink); padding-bottom: 6px; margin: 0 0 4px; }
+.sec-head h2 { font: 700 19px/1.2 var(--serif); margin: 0; }
+.sec-head .meta { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--muted); padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th button { all: unset; cursor: pointer; padding: 4px 0; }
+th button:focus-visible { outline: 2px solid var(--accent); }
+td { padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.r, th.r { text-align: right; }
+tr.sel td { background: var(--accent-soft); }
+.tick { all: unset; cursor: pointer; font: 700 15px var(--serif); display: block; padding: 6px 0; min-width: 64px; }
+.tick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sub { color: var(--muted); font-size: 12.5px; display: block; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score { font: 700 17px var(--serif); }
+.g-top { color: var(--accent); font-weight: 600; }
+.g-mid { color: var(--ink); }
+.g-low { color: var(--muted); }
+.g-bad { color: var(--rust); font-weight: 600; }
+.x { all: unset; cursor: pointer; width: 32px; height: 32px; display: grid; place-items: center; color: var(--muted); border-radius: 4px; }
+.x:hover { color: var(--rust); }
+.x:focus-visible { outline: 2px solid var(--accent); }
+.empty { color: var(--muted); padding: 18px 0; }
+@media (max-width: 560px) { .hide-sm { display: none; } .sub { max-width: 110px; } td, th { padding-left: 4px; padding-right: 4px; } }
+
+.sheet { background: var(--sheet); border: 1px solid var(--line); padding: 26px 28px 30px; }
+@media (max-width: 560px) { .sheet { padding: 18px 16px 22px; } }
+.sheet h3 { font: 700 15px/1.3 var(--sans); margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; }
+.sheet h3 .n { font: 400 13px var(--serif); color: var(--muted); }
+.part { border-top: 3px double var(--line); padding-top: 18px; margin-top: 22px; }
+.idline { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+.idline .sym { font: 700 40px/1 var(--serif); letter-spacing: -0.5px; }
+.idline .name { margin: 6px 0 2px; font-weight: 600; }
+.idline .meta { color: var(--muted); font-size: 13px; }
+.label { display: inline-block; border: 1px solid var(--accent); color: var(--accent); font-size: 12px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: 2px; }
+.stamp { text-align: right; }
+.stamp .grade { display: inline-block; border: 2px solid currentColor; padding: 6px 14px; font: 700 22px/1.1 var(--serif); }
+.stamp .of { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+.headline { font: 700 23px/1.3 var(--serif); margin: 0 0 10px; }
+.points { margin: 0; padding-left: 20px; }
+.points li { margin: 3px 0; }
+.note { color: var(--muted); font-size: 13.5px; margin: 10px 0 0; }
+.vs { margin-top: 12px; font-size: 13.5px; padding: 10px 12px; border: 1px dashed var(--line); }
+
+.factor { display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px 36px; gap: 12px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.factor .v { text-align: right; font-weight: 600; }
+.factor .w { text-align: right; color: var(--muted); font-size: 12.5px; }
+.bar { height: 8px; background: var(--line); }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.bar i.weak { background: var(--rust); }
+@media (max-width: 560px) { .factor { grid-template-columns: minmax(0, 1fr) 70px 64px; } .factor .w { display: none; } }
+
+.growth svg { width: 100%; height: auto; display: block; }
+.growth .big { font: 700 30px/1.1 var(--serif); }
+.growth .big small { font: 400 15px var(--sans); color: var(--muted); }
+
+.alloc { display: flex; height: 34px; margin: 12px 0 8px; border: 1px solid var(--ink); }
+.alloc span { display: grid; place-items: center; font-size: 12.5px; font-weight: 600; color: var(--paper); overflow: hidden; white-space: nowrap; }
+.alloc span.me { outline: 3px solid var(--ink); outline-offset: -3px; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 4px 18px; font-size: 14px; }
+.legend li { display: flex; gap: 8px; align-items: center; }
+.legend i { width: 12px; height: 12px; flex: none; }
+.legend b { margin-left: auto; }
+.legend .me { font-weight: 700; }
+select { min-height: 44px; padding: 0 10px; border: 1px solid var(--ink); border-radius: 4px; background: var(--sheet); max-width: 100%; }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 560px) { .cols { grid-template-columns: 1fr; } }
+.rows { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.rows li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.rows li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.state-title { font: 700 21px var(--serif); margin: 0 0 6px; }
+.method ol { padding-left: 20px; margin: 8px 0; }
+.foot { color: var(--muted); font-size: 12.5px; margin-top: 26px; border-top: 1px solid var(--line); padding-top: 10px; }
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="wrap">
+    <div>
+      <h1>Screeny</h1>
+      <p>Screening dan rekomendasi ETF, dinilai dari biaya, diversifikasi, performa 10 tahun, dan ketahanan saat pasar jatuh.</p>
+    </div>
+    <button class="btn" id="theme" type="button"></button>
+  </div>
+</header>
+
+<section class="wrap finder" aria-label="Cari ETF">
+  <form id="find">
+    <input id="q" list="suggest" autocomplete="off" spellcheck="false" placeholder="Ticker ETF, contoh VOO atau VWRA.L" aria-label="Ticker atau nama ETF">
+    <datalist id="suggest"></datalist>
+    <button class="btn primary" type="submit">Screening ETF</button>
+  </form>
+  <p class="hint">ETF bursa London pakai akhiran .L (VWRA.L, CNDX.L). Data dari Yahoo Finance.</p>
+  <div class="presets" id="presets"></div>
+</section>
+
+<main class="wrap">
+  <section aria-labelledby="list-h">
+    <div class="sec-head"><h2 id="list-h">Hasil screening</h2><span class="meta" id="count"></span></div>
+    <div id="table" style="overflow-x:auto"></div>
+  </section>
+  <section aria-label="Detail ETF" id="detail" tabindex="-1"></section>
+</main>
+
+<script>
+const VIDEO1 = "https://www.youtube.com/watch?v=HFqyPLgV0Vs";
+const VIDEO2 = "https://www.youtube.com/watch?v=ZYzsY-D3M58";
+const PRESETS = [
+  // Filled from /api/top: largest US ETFs by fund net assets, refreshed by the server every 6 hours.
+  { title: "10 ETF terbesar saat ini", note: "urut dana kelolaan, Yahoo Finance", list: null },
+  { title: "Portofolio 3 ETF (fondasi, dividen, growth)", url: VIDEO1, list: ["VWRA.L", "VT", "ACWI", "IGDA.L", "SCHD", "QQQM", "SCHG", "CNDX.L", "SPTE", "BND"] },
+];
+// Verdicts stated in video 2, shown next to Screeny's own grade.
+const VERDICT2 = { VTI: "Terbaik", QQQ: "Terbaik", VOO: "Sangat baik", IVV: "Sangat baik", VUG: "Sangat baik", VXUS: "Baik", VTV: "Bagus", SPY: "Hindari", IEFA: "Hindari", IWF: "Hindari" };
+
+// Slots of the modernised 3-ETF portfolio in video 1.
+const SLOT = {
+  fondasi: { label: "Fondasi dunia", fill: "var(--accent)", picks: ["VWRA.L", "VT", "ACWI", "IGDA.L"] },
+  stabil: { label: "Dividen (penyeimbang)", fill: "color-mix(in srgb, var(--accent) 55%, var(--paper))", picks: ["SCHD"] },
+  growth: { label: "Growth", fill: "var(--ink)", picks: ["QQQM", "SCHG", "CNDX.L", "SPTE"] },
+  obligasi: { label: "Obligasi", fill: "var(--muted)", picks: ["BND"] },
+  spekulatif: { label: "Risiko tinggi", fill: "var(--rust)", picks: [] },
+};
+const ROLE = {
+  fondasi: { label: "Fondasi dunia", short: "Fondasi", slot: "fondasi", note: "ETF seluruh dunia (sekitar 60% AS, 40% non-AS) menjadi fondasi portofolio. Video 1 menyebut VWRA, VT, ACWI, atau IGDA untuk versi syariah. Cukup pilih salah satu." },
+  "inti-as": { label: "Inti Amerika Serikat", short: "Inti AS", slot: "fondasi", note: "ETF pasar saham AS yang luas. Video 1 lebih memilih versi seluruh dunia untuk slot fondasi, tapi lebih dari 30% pendapatan perusahaan S&P 500 sudah berasal dari luar AS." },
+  stabil: { label: "Dividen", slot: "stabil", note: "Video 1 mengganti obligasi dengan ETF dividen sebagai penyeimbang: geraknya lebih tenang dari pasar (beta di bawah 1) dan tetap menghasilkan arus kas. Contoh di video: SCHD." },
+  growth: { label: "Growth", slot: "growth", note: "Mesin pertumbuhan, didominasi teknologi dan AI. Pilih satu saja (QQQM, SCHG, CNDX, atau SPTE versi syariah): isinya banyak tumpang tindih." },
+  internasional: { label: "Internasional", slot: null, note: "Video 1 tidak memakai slot internasional terpisah: ETF fondasi dunia sudah memuat saham non-AS, dan saat ekonomi AS jatuh pasar lain biasanya ikut melemah." },
+  obligasi: { label: "Obligasi", slot: "obligasi", note: "Video 1: BND hanya tumbuh sekitar 1,3% per tahun selama 10 tahun dan ikut jatuh di 2022. Masih masuk akal untuk pensiunan yang ingin lebih tenang." },
+  tematik: { label: "Tematik / sektor", short: "Tematik", slot: "spekulatif", note: "Fokus pada satu sektor atau tema. Video 1 lebih memilih growth yang luas daripada satu industri; tempatkan di porsi risiko tinggi." },
+  spekulatif: { label: "Spekulatif", slot: "spekulatif", note: "ETF leverage atau inverse. Nilainya bisa tergerus saat pasar naik turun, tidak cocok untuk beli dan simpan." },
+};
+// Allocation per life phase, as laid out in video 1.
+const STAGES = [
+  { id: "pemula", label: "Baru mulai investasi (tahun pertama)", mix: { fondasi: 34, stabil: 33, growth: 33 }, note: "Fokus di tiga ETF ini selama setahun pertama, bagi hampir rata. Sesuaikan komposisi setelah 1 sampai 2 tahun." },
+  { id: "jauh", label: "Pensiun masih lebih dari 20 tahun", mix: { stabil: 30, fondasi: 30, growth: 30, spekulatif: 10 }, note: "Porsi 10% boleh untuk aset berisiko hasil riset sendiri (saham individu, kripto). Paling berani 20%." },
+  { id: "p20", label: "Pensiun sekitar 20 tahun lagi", mix: { stabil: 30, fondasi: 35, growth: 35 }, note: "Ditambah dana darurat 6 bulan biaya hidup. Porsi dividen tidak perlu besar karena dividen kena pajak." },
+  { id: "p10", label: "Pensiun sekitar 10 tahun lagi", mix: { stabil: 40, fondasi: 30, growth: 30 }, note: "Ditambah cadangan kas 1 tahun biaya hidup." },
+  { id: "p5", label: "Pensiun sekitar 5 tahun lagi", mix: { stabil: 40, fondasi: 40, growth: 20 }, note: "Cadangan kas minimal 1 tahun biaya hidup, dibangun menuju 3 tahun saat pensiun dimulai." },
+  { id: "pensiun", label: "Sudah pensiun", mix: { stabil: 50, fondasi: 50 }, note: "Tanpa growth. Simpan kas 3 tahun biaya hidup di luar pasar saham agar tidak perlu menjual saat pasar jatuh." },
+  { id: "konservatif", label: "Sudah pensiun, ingin konservatif", mix: { stabil: 25, fondasi: 25, obligasi: 50 }, note: "Untuk yang ingin tidur nyenyak. Tetap simpan kas 3 tahun biaya hidup." },
+];
+
+const state = {
+  list: JSON.parse(localStorage.getItem("screeny:list") ?? "[]"),
+  data: {},
+  sort: { key: "score", dir: -1 },
+  stage: localStorage.getItem("screeny:stage") ?? "pemula",
+};
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const pct = (x, d = 1) => x == null ? "–" : `${(x * 100).toLocaleString("id-ID", { minimumFractionDigits: d, maximumFractionDigits: d })}%`;
+const rp = (v) => v >= 1e9 ? `Rp${(v / 1e9).toLocaleString("id-ID", { maximumFractionDigits: 2 })} miliar` : `Rp${Math.round(v / 1e6).toLocaleString("id-ID")} juta`;
+const gradeClass = (g) => ({ Terbaik: "g-top", "Sangat Baik": "g-top", Baik: "g-mid", Cukup: "g-low" })[g] ?? "g-bad";
+const selected = () => decodeURIComponent(location.hash.slice(1)).toUpperCase() || null;
+
+async function load(sym) {
+  state.data[sym] = { status: "loading" };
+  render();
+  try {
+    const r = await fetch(`/api/etf/${encodeURIComponent(sym)}`);
+    const j = await r.json().catch(() => ({ error: `Server membalas ${r.status}.` }));
+    if (!r.ok) throw new Error(j.error);
+    state.data[sym] = { status: "ok", d: j };
+  } catch (e) {
+    state.data[sym] = { status: "error", error: e instanceof TypeError ? "Server Screeny tidak bisa dihubungi. Pastikan `bun run start` masih jalan." : e.message };
+  }
+  render();
+}
+
+function add(raw, select = true) {
+  const sym = raw.trim().toUpperCase();
+  if (!sym) return;
+  if (!state.list.includes(sym)) {
+    state.list.push(sym);
+    localStorage.setItem("screeny:list", JSON.stringify(state.list));
+  }
+  if (!state.data[sym] || state.data[sym].status === "error") load(sym);
+  if (select && selected() !== sym) location.hash = encodeURIComponent(sym);
+  else render();
+}
+
+function remove(sym) {
+  state.list = state.list.filter((s) => s !== sym);
+  delete state.data[sym];
+  localStorage.setItem("screeny:list", JSON.stringify(state.list));
+  if (selected() === sym) history.replaceState(null, "", location.pathname);
+  render();
+}
+
+const SORTS = {
+  ticker: (s) => s,
+  role: (s, d) => d && (ROLE[d.role].short ?? ROLE[d.role].label),
+  er: (s, d) => d?.er,
+  cagr: (s, d) => d?.metrics.cagr,
+  mdd: (s, d) => d?.metrics.mdd,
+  score: (s, d) => d?.score.total,
+};
+
+function renderTable() {
+  const sel = selected();
+  const { key, dir } = state.sort;
+  const rows = state.list.map((s) => ({ s, e: state.data[s] ?? { status: "loading" } }));
+  rows.sort((a, b) => {
+    const va = SORTS[key](a.s, a.e.d), vb = SORTS[key](b.s, b.e.d);
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return (va > vb ? 1 : va < vb ? -1 : 0) * dir;
+  });
+  const done = rows.filter((r) => r.e.status === "ok").length;
+  $("#count").textContent = state.list.length ? `${done} dari ${state.list.length} ETF` : "";
+  if (!state.list.length) {
+    $("#table").innerHTML = `<p class="empty">Belum ada ETF yang disaring. Ketik ticker di kolom pencarian, atau pilih dari daftar dua video di atas.</p>`;
+    return;
+  }
+  const th = (k, label, cls = "") => `<th class="${cls}" ${key === k ? `aria-sort="${dir > 0 ? "ascending" : "descending"}"` : ""}><button type="button" data-sort="${k}" data-key="sort-${k}">${label}${key === k ? (dir > 0 ? " ▲" : " ▼") : ""}</button></th>`;
+  $("#table").innerHTML = `<table>
+    <thead><tr>${th("ticker", "ETF")}${th("role", "Peran", "hide-sm")}${th("er", "Biaya", "r hide-sm")}${th("cagr", "CAGR 10th", "r")}${th("mdd", "Turun maks", "r hide-sm hide-md")}${th("score", "Skor", "r")}<th><span class="sr">Hapus</span></th></tr></thead>
+    <tbody>${rows.map(({ s, e }) => {
+      const d = e.d;
+      // Status rows keep every cell so hidden responsive columns never shift the grid.
+      const blank = `<td class="hide-sm"></td><td class="hide-sm"></td><td></td><td class="hide-sm hide-md"></td>`;
+      const cell = e.status === "loading" ? `${blank}<td class="r"><span class="sub">Menyaring…</span></td>`
+        : e.status === "error" ? `${blank}<td class="r"><button class="btn small" type="button" data-retry="${esc(s)}" data-key="retry-${esc(s)}">Coba lagi</button></td>`
+        : `<td class="hide-sm">${esc(ROLE[d.role].short ?? ROLE[d.role].label)}</td>
+           <td class="r num hide-sm">${d.er == null ? "–" : pct(d.er, 2)}</td>
+           <td class="r num">${pct(d.metrics.cagr)}</td>
+           <td class="r num hide-sm hide-md">${pct(d.metrics.mdd, 0)}</td>
+           <td class="r"><span class="score num">${Math.round(d.score.total ?? 0)}</span> <span class="${gradeClass(d.score.grade)}" style="display:block;font-size:12.5px;white-space:nowrap">${esc(d.score.grade)}</span></td>`;
+      const sub = e.status === "error" ? `<span class="sub g-bad" title="${esc(e.error)}">Gagal dimuat</span>` : `<span class="sub">${esc(d?.name ?? "")}</span>`;
+      return `<tr class="${s === sel ? "sel" : ""}">
+        <td><button class="tick" type="button" data-select="${esc(s)}" data-key="sel-${esc(s)}" aria-current="${s === sel}">${esc(s)}</button>${sub}</td>
+        ${cell}
+        <td class="r"><button class="x" type="button" data-remove="${esc(s)}" aria-label="Hapus ${esc(s)} dari daftar" title="Hapus">×</button></td>
+      </tr>`;
+    }).join("")}</tbody></table>`;
+}
+
+function chart(points) {
+  // viewBox follows the rendered width so 12px labels stay 12px on phones.
+  const W = Math.max(300, ($("#detail").clientWidth || 640) - 60), H = 210, L = 8, R = 8, T = 16, B = 26;
+  const t0 = points[0][0], t1 = points.at(-1)[0];
+  const vs = points.map((p) => p[1]);
+  const lo = Math.min(0.9, ...vs), hi = Math.max(1.1, ...vs);
+  const x = (t) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R);
+  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const path = points.map((p, i) => `${i ? "L" : "M"}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join("");
+  const year = (t) => new Date(t).getUTCFullYear();
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Nilai Rp100 juta dari ${year(t0)} sampai ${year(t1)}: ${rp(vs.at(-1) * 1e8)}">
+    <line x1="${L}" x2="${W - R}" y1="${y(1)}" y2="${y(1)}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1"/>
+    <text x="${W - R}" y="${y(1) - 6}" font-size="12" fill="var(--muted)" text-anchor="end">Modal Rp100 juta</text>
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.25" stroke-linejoin="round"/>
+    <text x="${L}" y="${H - 6}" font-size="12" fill="var(--muted)">${year(t0)}</text>
+    <text x="${W - R}" y="${H - 6}" font-size="12" fill="var(--muted)" text-anchor="end">${year(t1)}</text>
+  </svg>`;
+}
+
+function emptyDetail() {
+  return `<div class="sheet method">
+    <p class="state-title">Pilih ETF untuk dibaca lembar penilaiannya</p>
+    <p>Ketik ticker atau klik ETF di daftar. Setiap ETF dinilai dari empat faktor yang dibahas di <a href="${VIDEO2}" target="_blank" rel="noopener">video 10 ETF terpopuler</a>, dihitung pada 10 tahun terakhir supaya ETF lama dan baru dibandingkan secara adil:</p>
+    <ol>
+      <li><b>Biaya</b> (25%): expense ratio per tahun. 0,03% sangat murah, reksa dana lokal bisa di atas 2%.</li>
+      <li><b>Diversifikasi</b> (20%): seberapa besar dana menumpuk di 10 saham teratas.</li>
+      <li><b>Performa</b> (35%): rata-rata pertumbuhan per tahun (CAGR). Di atas 12% berarti uang berlipat dua sekitar tiap 6 tahun.</li>
+      <li><b>Ketahanan</b> (20%): penurunan terdalam dari puncak, karena menurut <a href="${VIDEO1}" target="_blank" rel="noopener">video portofolio 3 ETF</a> penyeimbang harus tetap tenang saat pasar jatuh.</li>
+    </ol>
+    <p>Skor 85 ke atas Terbaik, 75 Sangat Baik, 65 Baik, 55 Cukup, di bawahnya Hindari. Seperti di video, ETF yang punya kembaran lebih murah (SPY dibanding VOO) atau ETF leverage langsung masuk Hindari.</p>
+    <p>Rekomendasi lalu menempatkan ETF di salah satu slot portofolio 3 ETF (fondasi dunia, dividen, growth) dan menunjukkan porsinya sesuai fase hidupmu.</p>
+  </div>`;
+}
+
+function detail(sym) {
+  if (!sym) return emptyDetail();
+  const e = state.data[sym];
+  if (!e || e.status === "loading") return `<div class="sheet" aria-busy="true"><p class="state-title">Menyaring ${esc(sym)}…</p><p class="note">Mengambil profil dana dan riwayat harga bulanan sejak awal dari Yahoo Finance.</p></div>`;
+  if (e.status === "error") return `<div class="sheet"><p class="state-title">${esc(sym)} belum bisa disaring</p><p>${esc(e.error)}</p><button class="btn" type="button" data-retry="${esc(sym)}" data-key="dretry">Coba lagi</button></div>`;
+
+  const d = e.d, s = d.score, m = d.metrics, role = ROLE[d.role];
+  const since = new Date(d.inception).getUTCFullYear();
+  const [div, unit] = d.aum >= 1e12 ? [1e12, "triliun"] : d.aum >= 1e9 ? [1e9, "miliar"] : [1e6, "juta"];
+  const aum = d.aum ? `${d.currency} ${(d.aum / div).toLocaleString("id-ID", { maximumFractionDigits: 1 })} ${unit} dana kelolaan` : null;
+  const meta = [d.family, d.exchange, d.currency, `sejak ${since}`, aum].filter(Boolean).map(esc).join(" · ");
+  const vetoed = s.raw != null && s.total < s.raw;
+  const end = m.growth.at(-1)?.[1];
+  const stage = STAGES.find((x) => x.id === state.stage) ?? STAGES[0];
+  const mine = role.slot;
+  const share = mine ? stage.mix[mine] : null;
+  const fmtVal = { biaya: (v) => pct(v, 2), diversifikasi: (v) => pct(v, 0), performa: (v) => `${pct(v)}/th`, ketahanan: (v) => pct(v, 0) };
+  const others = (mine ? SLOT[mine].picks : []).filter((p) => p !== d.symbol);
+
+  return `<article class="sheet">
+    <div class="idline">
+      <div>
+        <div class="sym">${esc(d.symbol)}${d.shariah ? `<span class="label">Syariah</span>` : ""}</div>
+        <p class="name">${esc(d.name)}</p>
+        <div class="meta num">${meta}</div>
+      </div>
+      <div class="stamp ${gradeClass(s.grade)}">
+        <span class="grade">${esc(s.grade ?? "Data kurang")}</span>
+        <span class="of num">Skor ${Math.round(s.total ?? 0)} dari 100</span>
+      </div>
+    </div>
+
+    <div class="part">
+      <h3><span class="n">01</span>Rekomendasi</h3>
+      <p class="headline">${esc(d.recommendation.headline)}</p>
+      <ul class="points">${d.recommendation.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
+      ${vetoed ? `<p class="note">Skor kualitas sebelum veto efisiensi: ${Math.round(s.raw)}. ${s.cheaper ? `Isi dananya bagus, tapi ${s.cheaper.map(esc).join(" dan ")} memberi eksposur yang mirip dengan biaya lebih rendah.` : "ETF leverage dibatasi ke Hindari untuk portofolio jangka panjang."}</p>` : ""}
+      ${s.cheaper ? `<div class="chips" style="margin-top:10px">${s.cheaper.map((c) => `<button class="chip" type="button" data-add="${esc(c)}">Saring ${esc(c)}</button>`).join("")}</div>` : ""}
+      ${VERDICT2[d.symbol] ? `<p class="vs">Penilaian di <a href="${VIDEO2}" target="_blank" rel="noopener">video 10 ETF terpopuler</a>: <b>${VERDICT2[d.symbol]}</b>. Screeny: <b>${esc(s.grade)}</b>, dihitung ulang dari data 10 tahun terakhir.</p>` : ""}
+    </div>
+
+    <div class="part">
+      <h3><span class="n">02</span>Faktor penilaian</h3>
+      ${s.factors.map((f) => `<div class="factor">
+        <span>${esc(f.label)}</span>
+        <span class="v num">${f.value == null ? "–" : fmtVal[f.key](f.value)}</span>
+        ${f.score == null ? `<span class="note" style="margin:0">tidak tersedia</span>` : `<span class="bar" title="Skor ${Math.round(f.score)}"><i class="${f.score < 45 ? "weak" : ""}" style="width:${Math.max(2, f.score)}%"></i></span>`}
+        <span class="w num">${f.weight}%</span>
+      </div>`).join("")}
+      ${s.coverage < 100 ? `<p class="note">Faktor yang datanya tidak tersedia dikeluarkan, bobot sisanya dihitung ulang.</p>` : ""}
+    </div>
+
+    ${m.growth.length > 1 ? `<div class="part growth">
+      <h3><span class="n">03</span>Rp100 juta, ${m.years.toLocaleString("id-ID", { maximumFractionDigits: 1 })} tahun terakhir</h3>
+      <p class="big num">${rp(end * 1e8)} <small>${m.cagr != null && m.cagr > 0 ? `· berlipat dua sekitar tiap ${(72 / (m.cagr * 100)).toLocaleString("id-ID", { maximumFractionDigits: 1 })} tahun (aturan 72)` : ""}</small></p>
+      ${chart(m.growth)}
+      <p class="note">Total return dalam ${esc(d.currency)} (dividen diinvestasikan ulang), belum memperhitungkan kurs rupiah. ${m.cagrAll != null ? `Sejak ${since}: ${pct(m.cagrAll)} per tahun.` : ""} ${m.beta != null ? `Beta 3 tahun terhadap S&P 500: ${m.beta.toLocaleString("id-ID", { maximumFractionDigits: 2 })}.` : ""}</p>
+    </div>` : ""}
+
+    <div class="part">
+      <h3><span class="n">04</span>Peran di portofolio 3 ETF: ${esc(role.label)}</h3>
+      <p>${esc(role.note)}</p>
+      ${others.length ? `<p class="note">Alternatif slot ini dari video:</p><div class="chips">${others.map((p) => `<button class="chip" type="button" data-add="${esc(p)}">${esc(p)}</button>`).join("")}</div>` : ""}
+      <p style="margin:18px 0 6px"><label for="stage"><b>Fase hidupmu</b></label></p>
+      <select id="stage" data-key="stage">${STAGES.map((x) => `<option value="${x.id}" ${x.id === stage.id ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</select>
+      <div class="alloc" role="img" aria-label="Komposisi: ${Object.entries(stage.mix).map(([k, v]) => `${SLOT[k].label} ${v}%`).join(", ")}">
+        ${Object.entries(stage.mix).map(([k, v]) => `<span class="${k === mine ? "me" : ""}" style="width:${v}%;background:${SLOT[k].fill}">${v >= 15 ? `${v}%` : ""}</span>`).join("")}
+      </div>
+      <ul class="legend">${Object.entries(stage.mix).map(([k, v]) => `<li class="${k === mine ? "me" : ""}"><i style="background:${SLOT[k].fill}"></i>${SLOT[k].label}${k === mine ? ` (${esc(d.symbol)})` : ""}<b class="num">${v}%</b></li>`).join("")}</ul>
+      <p><b>${!mine ? `${esc(d.symbol)} tidak punya slot sendiri di model ini.` : share ? `Di fase ini ${esc(d.symbol)} bisa mengisi slot ${SLOT[mine].label.toLowerCase()} sebesar ${share}%.` : `Fase ini tidak memakai slot ${SLOT[mine].label.toLowerCase()}, jadi ${esc(d.symbol)} tidak diperlukan.`}</b></p>
+      <p class="note">${esc(stage.note)}</p>
+    </div>
+
+    ${d.holdings.length || d.sectors.length ? `<div class="part cols">
+      ${d.holdings.length ? `<div><h3><span class="n">05</span>10 saham teratas</h3><ul class="rows num">${d.holdings.map((h) => `<li><span>${esc(h.name)}</span><span>${pct(h.pct)}</span></li>`).join("")}</ul></div>` : ""}
+      ${d.sectors.length ? `<div><h3><span class="n">${d.holdings.length ? "06" : "05"}</span>Sektor terbesar</h3><ul class="rows num">${d.sectors.map((x) => `<li><span>${esc(x.name)}</span><span>${pct(x.pct)}</span></li>`).join("")}</ul></div>` : ""}
+    </div>` : ""}
+
+    <p class="foot">Data Yahoo Finance per ${new Date(d.asOf).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}. Metode penilaian merangkum dua video Pandeka Perkasa untuk edukasi, bukan nasihat atau ajakan membeli efek. Performa masa lalu tidak menjamin hasil di masa depan.</p>
+  </article>`;
+}
+
+function render() {
+  const key = document.activeElement?.dataset?.key;
+  renderTable();
+  $("#detail").innerHTML = detail(selected());
+  document.querySelectorAll("#presets .chip[data-add]").forEach((b) => b.classList.toggle("on", state.list.includes(b.dataset.add)));
+  if (key) document.querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus();
+}
+
+function renderPresets() {
+  $("#presets").innerHTML = PRESETS.map((p) => `<div class="preset">
+    <h2>${esc(p.title)} ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener">tonton video</a>` : `<span class="sub" style="max-width:none;font-weight:400">${esc(p.note)}</span>`}</h2>
+    <div class="chips">${p.error ? `<span class="sub g-bad" style="max-width:none">${esc(p.error)}</span>`
+      : !p.list ? `<span class="sub" style="max-width:none">Memuat daftar…</span>`
+      : `${p.list.map((s) => `<button class="chip" type="button" data-add="${esc(s)}">${esc(s)}</button>`).join("")}
+      <button class="chip all" type="button" data-batch="${esc(p.list.join(","))}">Saring semua</button>`}</div>
+  </div>`).join("");
+  document.querySelectorAll("#presets .chip[data-add]").forEach((b) => b.classList.toggle("on", state.list.includes(b.dataset.add)));
+}
+renderPresets();
+fetch("/api/top").then((r) => r.ok ? r.json() : Promise.reject())
+  .then((top) => { PRESETS[0].list = top.map((x) => x.symbol); })
+  .catch(() => { PRESETS[0].error = "Daftar ETF terbesar gagal dimuat dari Yahoo Finance. Muat ulang halaman untuk mencoba lagi."; })
+  .finally(renderPresets);
+
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest("button");
+  if (!t) return;
+  const { select, remove: rm, add: ad, retry, sort, batch } = t.dataset;
+  if (select) { location.hash = encodeURIComponent(select); if (innerWidth <= 1180) $("#detail").scrollIntoView({ behavior: "smooth" }); }
+  else if (rm) remove(rm);
+  else if (ad) { add(ad); if (innerWidth <= 1180) $("#detail").scrollIntoView({ behavior: "smooth" }); }
+  else if (retry) load(retry);
+  else if (batch) { batch.split(",").forEach((s) => add(s, false)); render(); }
+  else if (sort) { state.sort = { key: sort, dir: state.sort.key === sort ? -state.sort.dir : sort === "ticker" || sort === "role" ? 1 : -1 }; render(); }
+});
+document.addEventListener("change", (ev) => {
+  if (ev.target.id !== "stage") return;
+  state.stage = ev.target.value;
+  localStorage.setItem("screeny:stage", state.stage);
+  render();
+});
+$("#find").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const v = $("#q").value.trim();
+  if (!v) { $("#q").focus(); return; }
+  add(v.split(/\s/)[0]);
+  $("#q").value = "";
+});
+let timer;
+$("#q").addEventListener("input", () => {
+  clearTimeout(timer);
+  const v = $("#q").value.trim();
+  if (v.length < 2) return;
+  timer = setTimeout(async () => {
+    const r = await fetch(`/api/search?q=${encodeURIComponent(v)}`).then((x) => x.ok ? x.json() : []).catch(() => []);
+    $("#suggest").innerHTML = r.map((o) => `<option value="${esc(o.symbol)}">${esc(o.name)} · ${esc(o.exchange)}</option>`).join("");
+  }, 250);
+});
+const themeBtn = $("#theme");
+const paintTheme = () => { themeBtn.textContent = document.documentElement.dataset.theme === "dark" ? "Mode terang" : "Mode gelap"; };
+themeBtn.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem("screeny:theme", next);
+  paintTheme();
+});
+addEventListener("hashchange", () => { const s = selected(); if (s && !state.list.includes(s)) add(s); else render(); });
+
+paintTheme();
+state.list.forEach((s) => load(s));
+if (selected() && !state.list.includes(selected())) add(selected());
+render();
+</script>
+</body>
+</html>
