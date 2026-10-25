@@ -1,3 +1,7 @@
+<div align="center">
+  <img src=".github/assets/banner.svg" alt="screeny — Screen and rank ETFs by cost, diversification and more." width="100%">
+</div>
+
 # Screeny
 
 Aplikasi web untuk screening dan rekomendasi ETF. Metodenya diambil dari dua video Pandeka Perkasa:
